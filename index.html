@@ -71,18 +71,29 @@
             return pos;
         }
 
-        // 2. Heart Shape (Kepalan tangan)
+        // 2. Heart Shape + Efek Fireworks di sekelilingnya (Kepalan tangan)
         function getHeartPositions() {
             const pos = new Float32Array(PARTICLE_COUNT * 3);
             for (let i = 0; i < PARTICLE_COUNT; i++) {
-                const t = Math.random() * Math.PI * 2;
-                const u = Math.random() * Math.PI - Math.PI / 2;
-                let x = 16 * Math.pow(Math.sin(t), 3);
-                let y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
-                let z = u * 2;
-                pos[i * 3] = x * 0.3;
-                pos[i * 3 + 1] = y * 0.3;
-                pos[i * 3 + 2] = z * 0.3;
+                if (i < PARTICLE_COUNT * 0.7) {
+                    // 70% bagian membentuk inti Hati
+                    const t = Math.random() * Math.PI * 2;
+                    const u = Math.random() * Math.PI - Math.PI / 2;
+                    let x = 16 * Math.pow(Math.sin(t), 3);
+                    let y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+                    let z = u * 2;
+                    pos[i * 3] = x * 0.3;
+                    pos[i * 3 + 1] = y * 0.3;
+                    pos[i * 3 + 2] = z * 0.3;
+                } else {
+                    // 30% bagian sisanya meledak seperti percikan kembang api di sekitar hati
+                    const theta = Math.random() * Math.PI * 2;
+                    const phi = Math.random() * Math.PI;
+                    const r = 1.5 + Math.random() * 4.5;
+                    pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+                    pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+                    pos[i * 3 + 2] = r * Math.cos(phi);
+                }
             }
             return pos;
         }
@@ -171,7 +182,7 @@
             for (let i = 0; i < PARTICLE_COUNT; i++) {
                 col[i * 3] = 1.0;
                 col[i * 3 + 1] = 0.8;
-                col[i * 3 + 2] = 0.2; // Nuansa Emas/Kuning
+                col[i * 3 + 2] = 0.2;
             }
             return col;
         }
@@ -179,9 +190,12 @@
         function getHeartColors() {
             const col = new Float32Array(PARTICLE_COUNT * 3);
             for (let i = 0; i < PARTICLE_COUNT; i++) {
-                col[i * 3] = 0.9 + Math.random() * 0.1;
-                col[i * 3 + 1] = 0.05 + Math.random() * 0.15;
-                col[i * 3 + 2] = 0.1 + Math.random() * 0.25; // Nuansa Merah
+                // Kombinasi warna merah hati dan kilau emas/putih kembang api
+                if (i < PARTICLE_COUNT * 0.7) {
+                    col[i * 3] = 0.95; col[i * 3 + 1] = 0.1; col[i * 3 + 2] = 0.3;
+                } else {
+                    col[i * 3] = 1.0; col[i * 3 + 1] = 0.9; col[i * 3 + 2] = 0.5;
+                }
             }
             return col;
         }
@@ -189,9 +203,7 @@
         function getAmeliaColor() {
             const col = new Float32Array(PARTICLE_COUNT * 3);
             for (let i = 0; i < PARTICLE_COUNT; i++) {
-                col[i * 3] = 0.1;
-                col[i * 3 + 1] = 0.8;
-                col[i * 3 + 2] = 1.0; // Nuansa Biru Cyan
+                col[i * 3] = 0.1; col[i * 3 + 1] = 0.8; col[i * 3 + 2] = 1.0;
             }
             return col;
         }
@@ -199,9 +211,7 @@
         function getHappyBirthdayColor() {
             const col = new Float32Array(PARTICLE_COUNT * 3);
             for (let i = 0; i < PARTICLE_COUNT; i++) {
-                col[i * 3] = 1.0;
-                col[i * 3 + 1] = 0.4;
-                col[i * 3 + 2] = 0.7; // Nuansa Pink
+                col[i * 3] = 1.0; col[i * 3 + 1] = 0.4; col[i * 3 + 2] = 0.7;
             }
             return col;
         }
@@ -276,11 +286,30 @@
 
             const positions = geometry.attributes.position.array;
             const colorsAttr = geometry.attributes.color.array;
+            const time = Date.now() * 0.002; // Waktu untuk efek gerakan halus
 
-            for (let i = 0; i < PARTICLE_COUNT * 3; i++) {
-                positions[i] += (targetPositions[i] - positions[i]) * 0.1;
-                colorsAttr[i] += (targetColors[i] - colorsAttr[i]) * 0.1;
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                const i3 = i * 3;
+
+                // Menambahkan sentuhan gerakan acak, melayang, dan halus (organic drift) menggunakan fungsi sinyal trigonometri
+                const noiseX = Math.sin(time + i) * 0.04;
+                const noiseY = Math.cos(time + i * 1.5) * 0.04;
+                const noiseZ = Math.sin(time * 0.5 + i * 2) * 0.04;
+
+                const targetX = targetPositions[i3] + noiseX;
+                const targetY = targetPositions[i3 + 1] + noiseY;
+                const targetZ = targetPositions[i3 + 2] + noiseZ;
+
+                // Transisi posisi dan warna yang mulus
+                positions[i3] += (targetX - positions[i3]) * 0.1;
+                positions[i3 + 1] += (targetY - positions[i3 + 1]) * 0.1;
+                positions[i3 + 2] += (targetZ - positions[i3 + 2]) * 0.1;
+
+                colorsAttr[i3] += (targetColors[i3] - colorsAttr[i3]) * 0.1;
+                colorsAttr[i3 + 1] += (targetColors[i3 + 1] - colorsAttr[i3 + 1]) * 0.1;
+                colorsAttr[i3 + 2] += (targetColors[i3 + 2] - colorsAttr[i3 + 2]) * 0.1;
             }
+
             geometry.attributes.position.needsUpdate = true;
             geometry.attributes.color.needsUpdate = true;
 
@@ -306,7 +335,7 @@
                 return 2; // "ameliaa oktaa"
             }
             if (!isIndexOpen && !isMiddleOpen && !isRingOpen && !isPinkyOpen) {
-                return 1; // "Heart" (Love)
+                return 1; // "Heart + Fireworks"
             }
             if (isIndexOpen && isMiddleOpen && isRingOpen && isPinkyOpen) {
                 return 0; // "Fireworks" (Default)
@@ -321,7 +350,7 @@
                 const shapeIndex = detectGesture(landmarks);
                 setShape(shapeIndex);
 
-                // Fitur Rotasi: Menghitung kemiringan tangan
+                // Rotasi mengikuti arah kemiringan tangan
                 const wrist = landmarks[0];
                 const middleKnuckle = landmarks[9];
                 const angle = Math.atan2(middleKnuckle.y - wrist.y, middleKnuckle.x - wrist.x);
