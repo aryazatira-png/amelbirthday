@@ -11,17 +11,32 @@
             background-color: #050505;
             font-family: Arial, sans-serif;
         }
-        #webcam {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            width: 180px;
-            height: 135px;
-            border: 2px solid #00ffcc;
+        #webcam-container {
+            position: fixed;
+            bottom: 14px;
+            right: 14px;
+            left: auto;
+            width: 110px;
+            height: 82px;
+            border: 1.5px solid rgba(0, 255, 204, 0.6);
             border-radius: 8px;
-            transform: scaleX(-1);
+            overflow: hidden;
             z-index: 10;
             background-color: #111;
+            opacity: 0.55;
+            transition: opacity 0.25s ease, width 0.25s ease, height 0.25s ease;
+        }
+        #webcam-container:hover {
+            opacity: 1;
+            width: 180px;
+            height: 135px;
+        }
+        #webcam {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+            display: block;
         }
         #error-msg {
             position: absolute;
@@ -37,6 +52,20 @@
             text-align: center;
             z-index: 100;
         }
+
+        /* Perkecil & geser lebih jauh ke pojok pada layar besar (laptop/desktop) */
+        @media (min-width: 900px) {
+            #webcam-container {
+                width: 90px;
+                height: 67px;
+                bottom: 18px;
+                right: 18px;
+            }
+            #webcam-container:hover {
+                width: 160px;
+                height: 120px;
+            }
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -45,7 +74,9 @@
 <body>
 
     <div id="error-msg">⚠️ Kamera tidak terdeteksi atau izin akses kamera ditolak!<br>Mohon izinkan akses kamera pada browser Anda.</div>
-    <video id="webcam" autoplay playsinline muted></video>
+    <div id="webcam-container">
+        <video id="webcam" autoplay playsinline muted></video>
+    </div>
 
     <script>
         const PARTICLE_COUNT = 8000;
