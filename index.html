@@ -52,6 +52,27 @@
             text-align: center;
             z-index: 100;
         }
+        /* Tombol Interaktif Pengaktif Musik */
+        #music-control {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 30px;
+            cursor: pointer;
+            z-index: 200;
+            font-size: 14px;
+            font-weight: bold;
+            transition: background 0.3s ease;
+        }
+        #music-control:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
 
         /* Perkecil & geser lebih jauh ke pojok pada layar besar (laptop/desktop) */
         @media (min-width: 900px) {
@@ -73,10 +94,17 @@
 </head>
 <body>
 
+    <button id="music-control">🎵 Klik untuk Aktifkan Musik</button>
     <div id="error-msg">⚠️ Kamera tidak terdeteksi atau izin akses kamera ditolak!<br>Mohon izinkan akses kamera pada browser Anda.</div>
     <div id="webcam-container">
         <video id="webcam" autoplay playsinline muted></video>
     </div>
+
+    <!-- ELEMEN AUDIO / LAGU (Pastikan file lagu1.mp3, lagu2.mp3, lagu3.mp3, lagu4.mp3 ada di folder yang sama) -->
+    <audio id="audio-0" loop src="lagu1.mp3"></audio>
+    <audio id="audio-1" loop src="lagu4.mp3"></audio>
+    <audio id="audio-2" loop src="lagu3.mp3"></audio>
+    <audio id="audio-3" loop src="lagu2.mp3"></audio>
 
     <script>
         const PARTICLE_COUNT = 8000;
@@ -87,6 +115,42 @@
         let targetColors = new Float32Array(PARTICLE_COUNT * 3);
 
         let activeShapeIndex = 0;
+
+        // --- SISTEM AUDIO TAMBAHAN ---
+        let isMusicStarted = false;
+        const audioElements = [
+            document.getElementById('audio-0'), // lagu1 (Partikel / Fireworks)
+            document.getElementById('audio-1'), // lagu4 (Bentuk Love)
+            document.getElementById('audio-2'), // lagu3 (Amelia okta)
+            document.getElementById('audio-3')  // lagu2 (Happy birthday)
+        ];
+
+        audioElements.forEach(audio => { audio.volume = 0.5; });
+
+        const musicButton = document.getElementById('music-control');
+        musicButton.addEventListener('click', () => {
+            if (!isMusicStarted) {
+                isMusicStarted = true;
+                playActiveAudio();
+                musicButton.innerText = "🔊 Musik Aktif (Klik untuk Mute)";
+            } else {
+                isMusicStarted = false;
+                stopAllAudio();
+                musicButton.innerText = "🔇 Musik Dimatikan (Klik untuk Aktifkan)";
+            }
+        });
+
+        function stopAllAudio() {
+            audioElements.forEach(audio => { audio.pause(); });
+        }
+
+        function playActiveAudio() {
+            if (!isMusicStarted) return;
+            stopAllAudio();
+            audioElements[activeShapeIndex].currentTime = 0;
+            audioElements[activeShapeIndex].play().catch(e => console.log("Audio play blocked:", e));
+        }
+        // -----------------------------
 
         // 1. Fireworks (Bentuk Default / Semua jari terbuka)
         function getFireworksPositions() {
@@ -303,6 +367,9 @@
             if (activeShapeIndex === shapeIndex) return;
             activeShapeIndex = shapeIndex;
 
+            // Memutar audio sesuai perubahan bentuk/gestur tangan
+            playActiveAudio();
+
             const targetPos = shapes[shapeIndex];
             const targetCol = shapeColors[shapeIndex];
 
@@ -360,16 +427,16 @@
             const isPinkyOpen = landmarks[20].y < landmarks[18].y;
 
             if (isIndexOpen && isMiddleOpen && !isRingOpen && !isPinkyOpen) {
-                return 3; // "Happy birthdaay"
+                return 3; // "Happy birthdaay" -> memainkan lagu2.mp3
             }
             if (isIndexOpen && !isMiddleOpen && !isRingOpen && !isPinkyOpen) {
-                return 2; // "ameliaa oktaa"
+                return 2; // "ameliaa oktaa" -> memainkan lagu3.mp3
             }
             if (!isIndexOpen && !isMiddleOpen && !isRingOpen && !isPinkyOpen) {
-                return 1; // "Heart + Fireworks"
+                return 1; // "Heart" -> memainkan lagu4.mp3
             }
             if (isIndexOpen && isMiddleOpen && isRingOpen && isPinkyOpen) {
-                return 0; // "Fireworks" (Default)
+                return 0; // "Fireworks" (Default) -> memainkan lagu1.mp3
             }
 
             return activeShapeIndex;
