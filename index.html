@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hand Gesture Particle Control</title>
+    <title>Hand Gesture Particle Control with Rain Text</title>
     <style>
         body {
             margin: 0;
@@ -52,7 +52,6 @@
             text-align: center;
             z-index: 100;
         }
-        /* Tombol Interaktif Pengaktif Musik */
         #music-control {
             position: fixed;
             top: 20px;
@@ -74,7 +73,30 @@
             background: rgba(255, 255, 255, 0.3);
         }
 
-        /* Perkecil & geser lebih jauh ke pojok pada layar besar (laptop/desktop) */
+        /* Styling untuk Efek Hujan Teks */
+        #rain-container {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 5;
+        }
+        .rain-text {
+            position: absolute;
+            color: rgba(255, 130, 190, 0.8);
+            font-family: 'Arial', sans-serif;
+            font-weight: bold;
+            user-select: none;
+            animation: fall linear forwards;
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+        }
+        @keyframes fall {
+            0% { transform: translateY(-50px); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(105vh); opacity: 0; }
+        }
+
         @media (min-width: 900px) {
             #webcam-container {
                 width: 90px;
@@ -95,18 +117,454 @@
 <body>
 
     <button id="music-control">🎵 Klik untuk Aktifkan Musik</button>
+    <div id="rain-container"></div>
     <div id="error-msg">⚠️ Kamera tidak terdeteksi atau izin akses kamera ditolak!<br>Mohon izinkan akses kamera pada browser Anda.</div>
     <div id="webcam-container">
         <video id="webcam" autoplay playsinline muted></video>
     </div>
 
-    <!-- ELEMEN AUDIO / LAGU (Pastikan file lagu1.mp3, lagu2.mp3, lagu3.mp3, lagu4.mp3 ada di folder yang sama) -->
+    <!-- ELEMEN AUDIO -->
     <audio id="audio-0" loop src="lagu1.mp3"></audio>
     <audio id="audio-1" loop src="lagu4.mp3"></audio>
     <audio id="audio-2" loop src="lagu3.mp3"></audio>
     <audio id="audio-3" loop src="lagu2.mp3"></audio>
 
     <script>
+        const PARTICLE_COUNT = 8000;
+        let scene, camera, renderer, particles, geometry;
+        let currentPositions = new Float32Array(PARTICLE_COUNT * 3);
+        let targetPositions = new Float32Array(PARTICLE_COUNT * 3);
+        let currentColors = new Float32Array(PARTICLE_COUNT * 3);
+        let targetColors = new Float32Array(PARTICLE_COUNT * 3);
+
+        let activeShapeIndex = 0;
+
+        // --- SISTEM AUDIO ---
+        let isMusicStarted = false;
+        const audioElements = [
+            document.getElementById('audio-0'), 
+            document.getElementById('audio-1'), 
+            document.getElementById('audio-2'), 
+            document.getElementById('audio-3')  
+        ];
+
+        audioElements.forEach(audio => { audio.volume = 0.5; });
+
+        const musicButton = document.getElementById('music-control');
+        musicButton.addEventListener('click', () => {
+            if (!isMusicStarted) {
+                isMusicStarted = true;
+                playActiveAudio();
+                musicButton.innerText = "🔊 Musik Aktif (Klik untuk Mute)";
+            } else {
+                isMusicStarted = false;
+                stopAllAudio();
+                musicButton.innerText = "🔇 Musik Dimatikan (Klik untuk Aktifkan)";
+            }
+        });
+
+        function stopAllAudio() {
+            audioElements.forEach(audio => { audio.pause(); });
+        }
+
+        function playActiveAudio() {
+            if (!isMusicStarted) return;
+            stopAllAudio();
+            audioElements[activeShapeIndex].currentTime = 0;
+            audioElements[activeShapeIndex].play().catch(e => console.log("Audio play blocked:", e));
+        }
+
+        // --- SISTEM EFEK HUJAN TEKS (15 BAHASA TERMASUK ARAB) ---
+        const birthdayPhrases = [
+            "Selamat Ulang Tahun",       // 1. Indonesia
+            "Happy Birthday",            // 2. Inggris
+            "عيد ميلاد سعيد",             // 3. Arab
+            "Feliz Cumpleaños",          // 4. Spanyol
+            "Joyeux Anniversaire",       // 5. Prancis
+            "Buon Compleanno",           // 6. Italia
+            "Alles Gute zum Geburtstag", // 7. Jerman
+            "Otanjoubi Omedetou",        // 8. Jepang
+            "Saeng-il Chukhahae",        // 9. Korea
+            "Shēngrì Kuàilè",           // 10. Mandarin
+            "Gelukkige verjaardag",      // 11. Belanda
+            "С днём рождения",           // 12. Rusia
+            "Doğum günün kutlu olsun",   // 13. Turki
+            "Parabéns",                  // 14. Portugis
+            "Sto Lat"                    // 15. Polandia
+        ];
+        let rainInterval = null;
+
+        function startRainEffect() {
+            if (rainInterval) return;
+            rainInterval = setInterval(() => {
+                const container = document.getElementById('rain-container');
+                const el = document.createElement('div');
+                el.className = 'rain-text';
+                el.innerText = birthdayPhrases[Math.floor(Math.random() * birthdayPhrases.length)];
+                
+                el.style.left = Math.random() * window.innerWidth + 'px';
+                el.style.top = '-40px';
+                
+                const duration = 3.5 + Math.random() * 2.5; 
+                el.style.animationDuration = duration + 's';
+                el.style.fontSize = (13 + Math.random() * 10) + 'px'; 
+                
+                container.appendChild(el);
+                setTimeout(() => {
+                    el.remove();
+                }, duration * 1000);
+            }, 150); 
+        }
+
+        function stopRainEffect() {
+            if (rainInterval) {
+                clearInterval(rainInterval);
+                rainInterval = null;
+            }
+            document.getElementById('rain-container').innerHTML = '';
+        }
+        // ---------------------------------------------
+
+        // 1. Fireworks (Bentuk Default / Semua jari terbuka)
+        function getFireworksPositions() {
+            const pos = new Float32Array(PARTICLE_COUNT * 3);
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.random() * Math.PI;
+                const r = Math.random() * 6;
+                pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+                pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+                pos[i * 3 + 2] = r * Math.cos(phi);
+            }
+            return pos;
+        }
+
+        // 2. Heart Shape + Efek Fireworks di sekelilingnya (Kepalan tangan)
+        function getHeartPositions() {
+            const pos = new Float32Array(PARTICLE_COUNT * 3);
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                if (i < PARTICLE_COUNT * 0.7) {
+                    const t = Math.random() * Math.PI * 2;
+                    const u = Math.random() * Math.PI - Math.PI / 2;
+                    let x = 16 * Math.pow(Math.sin(t), 3);
+                    let y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+                    let z = u * 2;
+                    pos[i * 3] = x * 0.3;
+                    pos[i * 3 + 1] = y * 0.3;
+                    pos[i * 3 + 2] = z * 0.3;
+                } else {
+                    const theta = Math.random() * Math.PI * 2;
+                    const phi = Math.random() * Math.PI;
+                    const r = 1.5 + Math.random() * 4.5;
+                    pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+                    pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+                    pos[i * 3 + 2] = r * Math.cos(phi);
+                }
+            }
+            return pos;
+        }
+
+        // 3. Teks "ameliaa oktaa" (Telunjuk menunjuk)
+        function getAmeliaPositions() {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 700;
+            canvas.height = 120;
+
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 45px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('ameliaa oktaa', 350, 75);
+
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const validPixels = [];
+
+            for (let y = 0; y < canvas.height; y += 2) {
+                for (let x = 0; x < canvas.width; x += 2) {
+                    const index = (y * canvas.width + x) * 4;
+                    if (imgData.data[index] > 128) {
+                        validPixels.push({
+                            x: (x - canvas.width / 2) * 0.03,
+                            y: -(y - canvas.height / 2) * 0.03
+                        });
+                    }
+                }
+            }
+
+            const pos = new Float32Array(PARTICLE_COUNT * 3);
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                const pt = validPixels[i % validPixels.length];
+                pos[i * 3] = pt.x + (Math.random() - 0.5) * 0.03;
+                pos[i * 3 + 1] = pt.y + (Math.random() - 0.5) * 0.03;
+                pos[i * 3 + 2] = (Math.random() - 0.5) * 0.1;
+            }
+            return pos;
+        }
+
+        // 4. Teks "Happy birthdaay" (Dua jari / Peace sign)
+        function getHappyBirthdayPositions() {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 700;
+            canvas.height = 120;
+
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 45px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Happy birthdaay', 350, 75);
+
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const validPixels = [];
+
+            for (let y = 0; y < canvas.height; y += 2) {
+                for (let x = 0; x < canvas.width; x += 2) {
+                    const index = (y * canvas.width + x) * 4;
+                    if (imgData.data[index] > 128) {
+                        validPixels.push({
+                            x: (x - canvas.width / 2) * 0.03,
+                            y: -(y - canvas.height / 2) * 0.03
+                        });
+                    }
+                }
+            }
+
+            const pos = new Float32Array(PARTICLE_COUNT * 3);
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                const pt = validPixels[i % validPixels.length];
+                pos[i * 3] = pt.x + (Math.random() - 0.5) * 0.03;
+                pos[i * 3 + 1] = pt.y + (Math.random() - 0.5) * 0.03;
+                pos[i * 3 + 2] = (Math.random() - 0.5) * 0.1;
+            }
+            return pos;
+        }
+
+        // --- Warna Partikel ---
+        function getFireworksColors() {
+            const col = new Float32Array(PARTICLE_COUNT * 3);
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                col[i * 3] = 1.0;
+                col[i * 3 + 1] = 0.8;
+                col[i * 3 + 2] = 0.2;
+            }
+            return col;
+        }
+
+        function getHeartColors() {
+            const col = new Float32Array(PARTICLE_COUNT * 3);
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                if (i < PARTICLE_COUNT * 0.7) {
+                    col[i * 3] = 0.95; col[i * 3 + 1] = 0.1; col[i * 3 + 2] = 0.3;
+                } else {
+                    col[i * 3] = 1.0; col[i * 3 + 1] = 0.9; col[i * 3 + 2] = 0.5;
+                }
+            }
+            return col;
+        }
+
+        function getAmeliaColor() {
+            const col = new Float32Array(PARTICLE_COUNT * 3);
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                col[i * 3] = 0.1; col[i * 3 + 1] = 0.8; col[i * 3 + 2] = 1.0;
+            }
+            return col;
+        }
+
+        function getHappyBirthdayColor() {
+            const col = new Float32Array(PARTICLE_COUNT * 3);
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                col[i * 3] = 1.0; col[i * 3 + 1] = 0.4; col[i * 3 + 2] = 0.7;
+            }
+            return col;
+        }
+
+        const shapes = [
+            getFireworksPositions(),
+            getHeartPositions(),
+            getAmeliaPositions(),
+            getHappyBirthdayPositions()
+        ];
+
+        const shapeColors = [
+            getFireworksColors(),
+            getHeartColors(),
+            getAmeliaColor(),
+            getHappyBirthdayColor()
+        ];
+
+        function initThreeJS() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 12;
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            geometry = new THREE.BufferGeometry();
+            const initialPos = shapes[0];
+            const initialCol = shapeColors[0];
+
+            for (let i = 0; i < PARTICLE_COUNT * 3; i++) {
+                currentPositions[i] = initialPos[i];
+                targetPositions[i] = initialPos[i];
+                currentColors[i] = initialCol[i];
+                targetColors[i] = initialCol[i];
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(currentPositions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(currentColors, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: 0.06,
+                vertexColors: true,
+                blending: THREE.AdditiveBlending,
+                transparent: true,
+                opacity: 0.85
+            });
+
+            particles = new THREE.Points(geometry, material);
+            scene.add(particles);
+
+            window.addEventListener('resize', onWindowResize);
+            animate();
+        }
+
+        function setShape(shapeIndex) {
+            if (activeShapeIndex === shapeIndex) return;
+            activeShapeIndex = shapeIndex;
+
+            playActiveAudio();
+
+            if (activeShapeIndex === 3) {
+                startRainEffect();
+            } else {
+                stopRainEffect();
+            }
+
+            const targetPos = shapes[shapeIndex];
+            const targetCol = shapeColors[shapeIndex];
+
+            for (let i = 0; i < PARTICLE_COUNT * 3; i++) {
+                targetPositions[i] = targetPos[i];
+                targetColors[i] = targetCol[i];
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const positions = geometry.attributes.position.array;
+            const colorsAttr = geometry.attributes.color.array;
+            const time = Date.now() * 0.002;
+
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                const i3 = i * 3;
+
+                const noiseX = Math.sin(time + i) * 0.04;
+                const noiseY = Math.cos(time + i * 1.5) * 0.04;
+                const noiseZ = Math.sin(time * 0.5 + i * 2) * 0.04;
+
+                const targetX = targetPositions[i3] + noiseX;
+                const targetY = targetPositions[i3 + 1] + noiseY;
+                const targetZ = targetPositions[i3 + 2] + noiseZ;
+
+                positions[i3] += (targetX - positions[i3]) * 0.1;
+                positions[i3 + 1] += (targetY - positions[i3 + 1]) * 0.1;
+                positions[i3 + 2] += (targetZ - positions[i3 + 2]) * 0.1;
+
+                colorsAttr[i3] += (targetColors[i3] - colorsAttr[i3]) * 0.1;
+                colorsAttr[i3 + 1] += (targetColors[i3 + 1] - colorsAttr[i3 + 1]) * 0.1;
+                colorsAttr[i3 + 2] += (targetColors[i3 + 2] - colorsAttr[i3 + 2]) * 0.1;
+            }
+
+            geometry.attributes.position.needsUpdate = true;
+            geometry.attributes.color.needsUpdate = true;
+
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function detectGesture(landmarks) {
+            const isIndexOpen = landmarks[8].y < landmarks[6].y;
+            const isMiddleOpen = landmarks[12].y < landmarks[10].y;
+            const isRingOpen = landmarks[16].y < landmarks[14].y;
+            const isPinkyOpen = landmarks[20].y < landmarks[18].y;
+
+            if (isIndexOpen && isMiddleOpen && !isRingOpen && !isPinkyOpen) {
+                return 3; // "Happy birthdaay"
+            }
+            if (isIndexOpen && !isMiddleOpen && !isRingOpen && !isPinkyOpen) {
+                return 2; // "ameliaa oktaa"
+            }
+            if (!isIndexOpen && !isMiddleOpen && !isRingOpen && !isPinkyOpen) {
+                return 1; // "Heart"
+            }
+            if (isIndexOpen && isMiddleOpen && isRingOpen && isPinkyOpen) {
+                return 0; // "Fireworks" (Default)
+            }
+
+            return activeShapeIndex;
+        }
+
+        function onResults(results) {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                const shapeIndex = detectGesture(landmarks);
+                setShape(shapeIndex);
+
+                const wrist = landmarks[0];
+                const middleKnuckle = landmarks[9];
+                const angle = Math.atan2(middleKnuckle.y - wrist.y, middleKnuckle.x - wrist.x);
+                particles.rotation.z = -angle - Math.PI / 2;
+            }
+        }
+
+        const videoElement = document.getElementById('webcam');
+        const errorMsg = document.getElementById('error-msg');
+
+        initThreeJS();
+
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.6,
+            minTrackingConfidence: 0.6
+        });
+
+        hands.onResults(onResults);
+
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then((stream) => {
+                videoElement.srcObject = stream;
+                const cameraUtils = new Camera(videoElement, {
+                    onFrame: async () => {
+                        await hands.send({ image: videoElement });
+                    },
+                    width: 480,
+                    height: 360
+                });
+                cameraUtils.start();
+            })
+            .catch((err) => {
+                console.error("Akses kamera ditolak/gagal:", err);
+                errorMsg.style.display = "block";
+            });
+    </script>
+</body>
+</html>
         const PARTICLE_COUNT = 8000;
         let scene, camera, renderer, particles, geometry;
         let currentPositions = new Float32Array(PARTICLE_COUNT * 3);
